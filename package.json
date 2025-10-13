@@ -1,0 +1,37 @@
+{
+  "name": "trackship-backend",
+  "version": "1.0.0",
+  "description": "Backend server for TrackShip mobile app - Expo push notifications and EuRIS ship tracking",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop trackship-backend",
+    "pm2:restart": "pm2 restart trackship-backend",
+    "pm2:logs": "pm2 logs trackship-backend"
+  },
+  "keywords": [
+    "expo",
+    "push-notifications",
+    "express",
+    "euris",
+    "ship-tracking"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "expo-server-sdk": "^3.7.0",
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

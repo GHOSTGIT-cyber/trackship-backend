@@ -26,18 +26,18 @@ trackship-backend/
 ├── config/
 │   └── constants.js           # Constantes et configuration
 ├── package.json
-├── ecosystem.config.js        # Configuration PM2
+├── railway.json              # Configuration Railway.app
 ├── .env.example              # Template de configuration
-└── .gitignore
+├── .gitignore
+└── RAILWAY.md                # Guide déploiement Railway
 ```
 
 ## Installation
 
 ### Prérequis
 
-- Node.js >= 16.0.0
+- Node.js >= 18.0.0
 - npm ou yarn
-- (Optionnel) PM2 pour la production
 
 ### Étapes
 
@@ -80,7 +80,32 @@ npm run dev
 
 Le serveur démarrera sur `http://localhost:3000`
 
-### Production
+## Déploiement
+
+### Railway.app (recommandé)
+
+**Railway.app** est la méthode la plus simple et rapide pour déployer ce backend en production. C'est **gratuit** (500h/mois), avec SSL automatique et domaine personnalisé supporté.
+
+**Avantages :**
+- ✅ Déploiement en 2 minutes
+- ✅ SSL automatique (HTTPS)
+- ✅ Déploiement automatique à chaque push Git
+- ✅ Logs en temps réel
+- ✅ Pas de configuration serveur
+
+**Documentation complète :** Voir [RAILWAY.md](RAILWAY.md)
+
+**Démarrage rapide :**
+1. Push le code sur GitHub
+2. Créer un compte sur [railway.app](https://railway.app)
+3. "New Project" → "Deploy from GitHub repo"
+4. Sélectionner le repo `trackship-backend`
+5. Configurer les variables d'environnement
+6. Déployé ! 🚀
+
+### Alternative : Serveur VPS (Oracle Cloud, etc.)
+
+Pour un déploiement sur votre propre serveur Ubuntu avec PM2 et Nginx.
 
 #### Option 1 : Node.js direct
 
@@ -88,7 +113,7 @@ Le serveur démarrera sur `http://localhost:3000`
 npm start
 ```
 
-#### Option 2 : PM2 (recommandé)
+#### Option 2 : PM2
 
 PM2 assure le redémarrage automatique, la gestion des logs et le monitoring.
 
@@ -194,7 +219,7 @@ Les zones sont définies dans [config/constants.js](config/constants.js) :
 - **Zone 2** : 2km (non utilisée actuellement)
 - **Zone 3** : 3km (zone de notification)
 
-## Déploiement sur Oracle Cloud
+## Déploiement VPS détaillé (Oracle Cloud, DigitalOcean, etc.)
 
 ### 1. Préparer le serveur Ubuntu
 
@@ -349,7 +374,7 @@ curl "http://localhost:3000/ships?lat=48.853229&lon=2.225328&radius=5000"
 
 ### Erreurs de mémoire
 
-Augmenter la limite dans [ecosystem.config.js](ecosystem.config.js) :
+Si vous utilisez PM2, augmenter la limite dans `ecosystem.config.js` :
 ```javascript
 max_memory_restart: '1G'
 ```

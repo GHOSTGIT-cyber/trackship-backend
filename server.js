@@ -29,6 +29,25 @@ app.use((req, res, next) => {
 // Routes
 
 /**
+ * Root endpoint - simple health check for Railway
+ * GET /
+ */
+app.get('/', (req, res) => {
+  res.json({
+    name: 'TrackShip Backend API',
+    status: 'online',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      registerToken: 'POST /register-token',
+      unregisterToken: 'POST /unregister-token',
+      ships: 'GET /ships',
+      tokensCount: 'GET /tokens/count'
+    }
+  });
+});
+
+/**
  * Health check endpoint
  * GET /health
  */
@@ -167,10 +186,15 @@ app.use((err, req, res, next) => {
 });
 
 // Démarrage du serveur
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 TrackShip backend server started on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`Base coordinates: ${process.env.BASE_LAT}, ${process.env.BASE_LON}`);
+
+  // Logger l'URL Railway si disponible
+  if (process.env.RAILWAY_STATIC_URL) {
+    logger.info(`🌐 Railway URL: https://${process.env.RAILWAY_STATIC_URL}`);
+  }
 
   // Démarrer le worker de vérification des navires
   shipChecker.start(registeredTokens);

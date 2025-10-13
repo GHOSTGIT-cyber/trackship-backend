@@ -1,5 +1,9 @@
 # TrackShip Backend
 
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/new)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org)
+
 Backend server Node.js Express pour l'application mobile TrackShip. Gère les notifications push Expo et la surveillance des navires via l'API EuRIS.
 
 ## Vue d'ensemble
@@ -96,12 +100,27 @@ Le serveur démarrera sur `http://localhost:3000`
 **Documentation complète :** Voir [RAILWAY.md](RAILWAY.md)
 
 **Démarrage rapide :**
-1. Push le code sur GitHub
-2. Créer un compte sur [railway.app](https://railway.app)
-3. "New Project" → "Deploy from GitHub repo"
-4. Sélectionner le repo `trackship-backend`
-5. Configurer les variables d'environnement
-6. Déployé ! 🚀
+1. Cliquer sur le badge "Deploy on Railway" en haut du README
+2. Se connecter avec GitHub
+3. Configurer les variables d'environnement suivantes :
+   - `BASE_LAT=48.853229`
+   - `BASE_LON=2.225328`
+   - `EURIS_API_URL=https://bakabi.fr/trackship/api/euris-proxy.php`
+   - `NODE_ENV=production`
+   - `LOG_LEVEL=info`
+4. Cliquer sur "Deploy"
+5. Déployé en 2 minutes ! 🚀
+
+**Variables d'environnement obligatoires pour Railway :**
+```env
+BASE_LAT=48.853229
+BASE_LON=2.225328
+EURIS_API_URL=https://bakabi.fr/trackship/api/euris-proxy.php
+NODE_ENV=production
+LOG_LEVEL=info
+```
+
+**Note :** Railway configure automatiquement le `PORT`, pas besoin de le définir.
 
 ### Alternative : Serveur VPS (Oracle Cloud, etc.)
 
@@ -418,8 +437,15 @@ CHECK_INTERVAL=60000  # 60 secondes
 
 ## Licence
 
-ISC
+MIT - Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
-## Auteur
+## Contribution
 
-TrackShip Team
+Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
+
+## Support
+
+Pour toute question ou problème :
+- Consulter la [documentation Railway](RAILWAY.md)
+- Ouvrir une issue GitHub
+- Consulter les logs de l'application

@@ -139,27 +139,60 @@ app.post('/unregister-token', (req, res) => {
 });
 
 /**
- * Proxy vers EuRIS API pour debug
- * GET /ships?lat=48.853229&lon=2.225328&radius=5000
+ * Récupérer les navires dans les différentes zones
+ * GET /ships
  */
 app.get('/ships', async (req, res) => {
   try {
-    const lat = parseFloat(req.query.lat) || parseFloat(process.env.BASE_LAT);
-    const lon = parseFloat(req.query.lon) || parseFloat(process.env.BASE_LON);
-    const radius = parseInt(req.query.radius) || 5000;
+    const BASE_LAT = parseFloat(process.env.BASE_LAT);
+    const BASE_LON = parseFloat(process.env.BASE_LON);
+    const RADIUS_KM = 5; // Récupérer dans un rayon de 5km
 
-    logger.info(`Fetching ships for debug`, { lat, lon, radius });
+    logger.info(`Fetching ships in ${RADIUS_KM}km radius`, { BASE_LAT, BASE_LON });
 
-    const ships = await eurisApi.fetchShips(lat, lon, radius);
+    // Récupérer les navires dans un rayon de 5km
+    const ships = await eurisApi.fetchShips(BASE_LAT, BASE_LON, RADIUS_KM * 1000);
+
+    // Filtrer par zones
+    const zone1 = ships.filter(s => s.distance <= 1000);
+    const zone2 = ships.filter(s => s.distance > 1000 && s.distance <= 2000);
+    const zone3 = ships.filter(s => s.distance > 2000 && s.distance <= 3000);
+    const beyond = ships.filter(s => s.distance > 3000);
+
+    // Préparer la réponse avec les navires formatés
+    const formattedShips = ships.map(s => ({
+      trackId: s.trackId,
+      name: s.name,
+      distance: Math.round(s.distance),
+      distanceKm: (s.distance / 1000).toFixed(2),
+      moving: s.moving,
+      course: s.course,
+      speed: s.speed ? s.speed.toFixed(1) : null,
+      heading: s.heading,
+      lat: s.lat,
+      lon: s.lon
+    }));
+
+    logger.info(`Ships retrieved: ${ships.length} total, Zone1: ${zone1.length}, Zone2: ${zone2.length}, Zone3: ${zone3.length}`);
 
     res.json({
       success: true,
-      count: ships.length,
-      ships
+      total: ships.length,
+      zones: {
+        zone1km: zone1.length,
+        zone2km: zone2.length,
+        zone3km: zone3.length,
+        beyond3km: beyond.length
+      },
+      ships: formattedShips
     });
   } catch (error) {
-    logger.error('Error fetching ships:', error);
-    res.status(500).json({ error: 'Failed to fetch ships' });
+    logger.error('Erreur route /ships:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message
+    });
   }
 });
 

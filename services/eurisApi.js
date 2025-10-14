@@ -66,13 +66,15 @@ async function fetchShips(lat, lon, radius) {
       );
 
       return {
-        mmsi: ship.mmsi || ship.MMSI,
-        name: ship.name || ship.shipname || ship.SHIPNAME || 'Unknown',
+        trackId: ship.trackId || ship.track_id || ship.TRACKID || ship.id || `unknown-${Math.random()}`,
+        mmsi: ship.mmsi || ship.MMSI || null,
+        name: ship.name || ship.shipname || ship.SHIPNAME || 'Navire inconnu',
         lat: ship.lat || ship.latitude,
         lon: ship.lon || ship.longitude,
         course: ship.course || ship.COG || null,
         speed: ship.speed || ship.SOG || null,
         heading: ship.heading || ship.HEADING || null,
+        moving: ship.moving || (ship.speed && ship.speed > 0.5) || false,
         shipType: ship.shipType || ship.ship_type || ship.SHIP_TYPE || null,
         length: ship.length || ship.A || null,
         width: ship.width || ship.B || null,

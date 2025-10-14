@@ -4,8 +4,9 @@ const notificationService = require('../services/notificationService');
 const { logger } = require('../utils/logger');
 const { BASE_COORDS, ZONES, CHECK_INTERVAL } = require('../config/constants');
 
-// État en mémoire : Map<mmsi, shipData>
+// État en mémoire : Map<trackId, shipData>
 // Permet de garder trace des navires déjà vus pour ne notifier que les NOUVEAUX
+// Utilise trackId car mmsi est souvent vide dans les données EuRIS
 const knownShips = new Map();
 
 // Référence vers le cron job pour pouvoir l'arrêter
@@ -36,20 +37,20 @@ async function checkShips() {
 
     logger.info(`Found ${ships.length} ships in zone 3km`);
 
-    // Créer un Set des MMSI actuellement dans la zone
-    const currentShipMMSIs = new Set(ships.map(ship => ship.mmsi));
+    // Créer un Set des trackId actuellement dans la zone
+    const currentShipTrackIds = new Set(ships.map(ship => ship.trackId));
 
     // Détecter les NOUVEAUX navires
     const newShips = [];
 
     for (const ship of ships) {
-      if (!knownShips.has(ship.mmsi)) {
+      if (!knownShips.has(ship.trackId)) {
         // Nouveau navire détecté !
         newShips.push(ship);
-        logger.info(`New ship detected: ${ship.name} (${ship.mmsi}) at ${(ship.distance / 1000).toFixed(1)}km`);
+        logger.info(`🚢 Nouveau navire détecté: ${ship.name} (trackId: ${ship.trackId}) à ${(ship.distance / 1000).toFixed(1)}km`);
       } else {
         // Navire déjà connu, mettre à jour ses infos
-        knownShips.set(ship.mmsi, {
+        knownShips.set(ship.trackId, {
           ...ship,
           lastSeen: new Date()
         });
@@ -59,27 +60,27 @@ async function checkShips() {
     // Nettoyer les navires qui ne sont plus dans la zone
     // (pour libérer la mémoire et permettre une nouvelle notification s'ils reviennent)
     const shipsToRemove = [];
-    for (const [mmsi, shipData] of knownShips.entries()) {
-      if (!currentShipMMSIs.has(mmsi)) {
+    for (const [trackId, shipData] of knownShips.entries()) {
+      if (!currentShipTrackIds.has(trackId)) {
         // Le navire n'est plus dans la zone
         const timeSinceLastSeen = Date.now() - new Date(shipData.lastSeen).getTime();
 
         // Supprimer après 5 minutes d'absence
         if (timeSinceLastSeen > 5 * 60 * 1000) {
-          shipsToRemove.push(mmsi);
+          shipsToRemove.push(trackId);
         }
       }
     }
 
-    shipsToRemove.forEach(mmsi => {
-      const ship = knownShips.get(mmsi);
-      logger.info(`Removing ship from memory: ${ship.name} (${mmsi})`);
-      knownShips.delete(mmsi);
+    shipsToRemove.forEach(trackId => {
+      const ship = knownShips.get(trackId);
+      logger.info(`Navire retiré de la mémoire: ${ship.name} (trackId: ${trackId})`);
+      knownShips.delete(trackId);
     });
 
     // Ajouter les nouveaux navires à la Map
     for (const ship of newShips) {
-      knownShips.set(ship.mmsi, {
+      knownShips.set(ship.trackId, {
         ...ship,
         firstSeen: new Date(),
         lastSeen: new Date()
@@ -166,7 +167,7 @@ function getStats() {
     isRunning: cronJob !== null,
     knownShipsCount: knownShips.size,
     knownShips: Array.from(knownShips.values()).map(ship => ({
-      mmsi: ship.mmsi,
+      trackId: ship.trackId,
       name: ship.name,
       distance: ship.distance,
       firstSeen: ship.firstSeen,

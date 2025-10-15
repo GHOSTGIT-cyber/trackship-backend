@@ -150,6 +150,82 @@ curl.exe -X POST https://api.bakabi.fr/unregister-token -H "Content-Type: applic
 
 ---
 
+## 🎬 Routes de DÉMO (nouveau)
+
+### Test 7 : Info démo
+
+```powershell
+curl.exe -X GET https://api.bakabi.fr/demo/info
+```
+
+**Réponse attendue :**
+```json
+{
+  "title": "Route de démo TrackShip",
+  "description": "Simule un navire dans la zone rouge (< 1km) et envoie une notification push",
+  "registeredTokens": 1,
+  "features": [
+    "Navire fictif : Foil'in Paris Demo (110m)",
+    "Distance : 850m (zone rouge)",
+    "Vitesse : 12.5 km/h",
+    "Notification push envoyée à tous les appareils enregistrés"
+  ]
+}
+```
+
+---
+
+### Test 8 : Démo notification navire
+
+⚠️ **Important** : Cette route nécessite au moins 1 token enregistré.
+
+```powershell
+curl.exe -X POST https://api.bakabi.fr/demo/ship-alert
+```
+
+**Réponse attendue (avec token enregistré) :**
+```json
+{
+  "success": true,
+  "message": "Notification de démo envoyée avec succès",
+  "recipients": 1,
+  "notificationResult": {
+    "sent": 1,
+    "errors": 0
+  },
+  "ship": {
+    "name": "Foil'in Paris Demo",
+    "distance": "850m",
+    "zone": "ROUGE (< 1km)",
+    "speed": "12.5 km/h",
+    "length": "110m"
+  },
+  "info": "Le navire apparaîtra dans l'app pendant quelques secondes"
+}
+```
+
+**Réponse (sans token) :**
+```json
+{
+  "error": "Aucun appareil enregistré pour les notifications",
+  "info": "Installez l'app et activez les notifications d'abord"
+}
+```
+
+**Cas d'usage :**
+- ✅ Tester les notifications push à tout moment (jour/nuit)
+- ✅ Démonstration sans attendre un vrai navire
+- ✅ Vérifier que l'app reçoit bien les notifications
+- ✅ Route ISOLÉE : n'affecte PAS le worker automatique
+
+**Logs Railway attendus :**
+```
+[INFO] POST /demo/ship-alert
+[INFO] 🎬 DÉMO : Notification envoyée à 1 appareil(s) { ship: 'Foil\'in Paris Demo', distance: 850, recipients: 1 }
+```
+
+---
+
 ## Méthode 3 : Postman / Insomnia
 
 ### Importer la collection

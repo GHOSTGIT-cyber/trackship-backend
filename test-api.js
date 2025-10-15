@@ -12,7 +12,7 @@ async function testAPI() {
   console.log(`📍 URL: ${API_URL}\n`);
 
   let passedTests = 0;
-  let totalTests = 5;
+  let totalTests = 7;
 
   // Test 1 : Root endpoint
   console.log('1️⃣  Test GET / (root)');
@@ -98,6 +98,37 @@ async function testAPI() {
     passedTests++;
   } catch (err) {
     console.log('❌ Count ERREUR:', err.message);
+  }
+
+  // Test 6 : Demo info
+  console.log('\n6️⃣  Test GET /demo/info');
+  try {
+    const res = await axios.get(`${API_URL}/demo/info`);
+    console.log('✅ Demo Info OK:');
+    console.log(`   Titre: ${res.data.title}`);
+    console.log(`   Tokens enregistrés: ${res.data.registeredTokens}`);
+    passedTests++;
+  } catch (err) {
+    console.log('❌ Demo Info ERREUR:', err.message);
+  }
+
+  // Test 7 : Demo ship alert (seulement si des tokens existent)
+  console.log('\n7️⃣  Test POST /demo/ship-alert');
+  try {
+    const res = await axios.post(`${API_URL}/demo/ship-alert`);
+    console.log('✅ Demo Ship Alert OK:');
+    console.log(`   Message: ${res.data.message}`);
+    console.log(`   Notifications envoyées à: ${res.data.recipients} appareil(s)`);
+    console.log(`   Navire: ${res.data.ship.name} à ${res.data.ship.distance}`);
+    passedTests++;
+  } catch (err) {
+    if (err.response?.status === 400) {
+      console.log('⚠️  Demo Ship Alert : Aucun token enregistré (normal)');
+      console.log(`   Message: ${err.response.data.error}`);
+      passedTests++; // On compte quand même comme passé
+    } else {
+      console.log('❌ Demo Ship Alert ERREUR:', err.response?.data || err.message);
+    }
   }
 
   // Résumé

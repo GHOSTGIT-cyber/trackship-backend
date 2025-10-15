@@ -42,7 +42,9 @@ app.get('/', (req, res) => {
       registerToken: 'POST /register-token',
       unregisterToken: 'POST /unregister-token',
       ships: 'GET /ships',
-      tokensCount: 'GET /tokens/count'
+      tokensCount: 'GET /tokens/count',
+      demoShipAlert: 'POST /demo/ship-alert',
+      demoInfo: 'GET /demo/info'
     }
   });
 });
@@ -204,6 +206,126 @@ app.get('/tokens/count', (req, res) => {
   res.json({
     count: registeredTokens.size,
     tokens: Array.from(registeredTokens).map(t => t.substring(0, 20) + '...')
+  });
+});
+
+// ============================================
+// ROUTES DE DÉMO (pour tests)
+// ============================================
+
+/**
+ * Route de test pour démo
+ * Simule un navire dans zone rouge + envoie notification
+ * POST /demo/ship-alert
+ *
+ * IMPORTANT : Route ISOLÉE qui n'affecte PAS le worker automatique
+ */
+app.post('/demo/ship-alert', async (req, res) => {
+  try {
+    // Vérifier qu'il y a au moins un appareil enregistré
+    if (registeredTokens.size === 0) {
+      return res.status(400).json({
+        error: 'Aucun appareil enregistré pour les notifications',
+        info: 'Installez l\'app et activez les notifications d\'abord',
+        howTo: 'POST /register-token avec votre token Expo'
+      });
+    }
+
+    // Navire fictif dans zone ROUGE (< 1km)
+    const demoShip = {
+      trackId: 'DEMO-FOIL-2025',
+      name: 'Foil\'in Paris Demo',
+      lat: 48.854, // Près de la base (Tour Eiffel)
+      lon: 2.226,
+      distance: 850, // Zone rouge : 850 mètres
+      speed: 12.5, // 12.5 km/h
+      course: 45, // Direction Nord-Est
+      heading: 42,
+      length: 110,
+      width: 11.4,
+      moving: true,
+      positionISRS: 'Seine km 42.5',
+      timestamp: new Date().toISOString()
+    };
+
+    // Préparer les tokens
+    const tokens = Array.from(registeredTokens);
+
+    // Envoyer notification push
+    const notifTitle = '🚢 Nouveau navire détecté !';
+    const notifBody = `${demoShip.name} (${demoShip.length}m) à ${Math.round(demoShip.distance)}m - Vitesse ${demoShip.speed} km/h`;
+
+    const result = await notificationService.sendPushNotification(
+      tokens,
+      notifTitle,
+      notifBody,
+      {
+        type: 'ship_detected',
+        ship: demoShip,
+        zone: 'red',
+        demo: true
+      }
+    );
+
+    logger.info(`🎬 DÉMO : Notification envoyée à ${tokens.length} appareil(s)`, {
+      ship: demoShip.name,
+      distance: demoShip.distance,
+      recipients: tokens.length
+    });
+
+    res.json({
+      success: true,
+      message: 'Notification de démo envoyée avec succès',
+      recipients: tokens.length,
+      notificationResult: {
+        sent: result.sent,
+        errors: result.errors
+      },
+      ship: {
+        name: demoShip.name,
+        distance: `${Math.round(demoShip.distance)}m`,
+        zone: 'ROUGE (< 1km)',
+        speed: `${demoShip.speed} km/h`,
+        length: `${demoShip.length}m`
+      },
+      info: 'Le navire apparaîtra dans l\'app pendant quelques secondes'
+    });
+
+  } catch (error) {
+    logger.error('Erreur route démo:', error);
+    res.status(500).json({
+      error: 'Erreur lors de l\'envoi de la démo',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Informations sur la route de démo
+ * GET /demo/info
+ */
+app.get('/demo/info', (req, res) => {
+  res.json({
+    title: 'Route de démo TrackShip',
+    description: 'Simule un navire dans la zone rouge (< 1km) et envoie une notification push',
+    endpoints: {
+      demo: 'POST /demo/ship-alert',
+      info: 'GET /demo/info'
+    },
+    usage: {
+      method: 'POST',
+      url: 'https://api.bakabi.fr/demo/ship-alert',
+      example: 'curl -X POST https://api.bakabi.fr/demo/ship-alert'
+    },
+    requirements: 'Au moins 1 appareil avec notifications activées (token enregistré)',
+    features: [
+      'Navire fictif : Foil\'in Paris Demo (110m)',
+      'Distance : 850m (zone rouge)',
+      'Vitesse : 12.5 km/h',
+      'Notification push envoyée à tous les appareils enregistrés'
+    ],
+    note: 'Cette route est ISOLÉE et n\'affecte PAS le worker automatique de détection',
+    registeredTokens: registeredTokens.size
   });
 });
 

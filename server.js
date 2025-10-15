@@ -44,7 +44,8 @@ app.get('/', (req, res) => {
       ships: 'GET /ships',
       tokensCount: 'GET /tokens/count',
       demoShipAlert: 'POST /demo/ship-alert',
-      demoInfo: 'GET /demo/info'
+      demoInfo: 'GET /demo/info',
+      debugNotifications: 'GET /debug/notifications'
     }
   });
 });
@@ -338,6 +339,56 @@ app.get('/demo/info', (req, res) => {
     note: 'Cette route est ISOLÉE et n\'affecte PAS le worker automatique de détection',
     registeredTokens: registeredTokens.size
   });
+});
+
+// ============================================
+// ROUTE DEBUG NOTIFICATIONS
+// ============================================
+
+/**
+ * Route pour débugger l'état des notifications
+ * Affiche tokens enregistrés + dernières activités worker
+ * GET /debug/notifications
+ */
+app.get('/debug/notifications', (req, res) => {
+  try {
+    // Récupérer les tokens
+    const tokens = Array.from(registeredTokens);
+
+    // Infos worker (si disponible)
+    const workerStats = global.workerStats || {
+      lastRun: 'Jamais',
+      totalChecks: 0,
+      shipsFound: 0,
+      notificationsSent: 0
+    };
+
+    res.json({
+      notifications: {
+        tokensRegistered: tokens.length,
+        tokens: tokens.map(t => ({
+          preview: t.substring(0, 30) + '...',
+          full: t
+        }))
+      },
+      worker: {
+        running: global.workerRunning || false,
+        lastRun: workerStats.lastRun,
+        totalChecks: workerStats.totalChecks,
+        shipsFound: workerStats.shipsFound,
+        notificationsSent: workerStats.notificationsSent
+      },
+      backend: {
+        uptime: Math.round(process.uptime()),
+        uptimeFormatted: `${Math.floor(process.uptime() / 60)}min ${Math.floor(process.uptime() % 60)}s`,
+        nodeEnv: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Error in debug route:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Gestion des erreurs 404

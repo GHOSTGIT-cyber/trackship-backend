@@ -14,23 +14,33 @@ const expo = new Expo();
  */
 async function sendPushNotification(tokens, title, body, data = {}) {
   try {
+    logger.info(`\n📧 sendPushNotification called:`, {
+      tokensCount: tokens.length,
+      title,
+      body: body.substring(0, 50) + '...',
+      dataKeys: Object.keys(data)
+    });
+
     // Filtrer les tokens invalides
     const validTokens = tokens.filter(token => {
       if (!Expo.isExpoPushToken(token)) {
-        logger.warn(`Invalid Expo push token: ${token}`);
+        logger.warn(`❌ Invalid Expo push token: ${token}`);
         return false;
       }
+      logger.info(`✅ Valid Expo token: ${token.substring(0, 30)}...`);
       return true;
     });
 
     if (validTokens.length === 0) {
-      logger.warn('No valid tokens to send notification to');
+      logger.warn('⚠️  No valid tokens to send notification to');
       return {
         success: false,
         message: 'No valid tokens',
         sent: 0
       };
     }
+
+    logger.info(`📋 Valid tokens: ${validTokens.length}/${tokens.length}`);
 
     // Créer les messages
     const messages = validTokens.map(token => ({
@@ -43,7 +53,7 @@ async function sendPushNotification(tokens, title, body, data = {}) {
       channelId: 'default'
     }));
 
-    logger.info(`Preparing to send ${messages.length} notifications`, {
+    logger.info(`📦 Preparing to send ${messages.length} notifications`, {
       title,
       tokens: validTokens.length
     });
@@ -52,14 +62,17 @@ async function sendPushNotification(tokens, title, body, data = {}) {
     const chunks = expo.chunkPushNotifications(messages);
     const tickets = [];
 
+    logger.info(`🔀 Split into ${chunks.length} chunk(s)`);
+
     // Envoyer chaque chunk
     for (const chunk of chunks) {
       try {
+        logger.info(`  → Sending chunk of ${chunk.length} notifications to Expo...`);
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
-        logger.info(`Sent chunk of ${chunk.length} notifications`);
+        logger.info(`  ✅ Sent chunk successfully, received ${ticketChunk.length} tickets`);
       } catch (error) {
-        logger.error('Error sending notification chunk:', error);
+        logger.error('  ❌ Error sending notification chunk:', error);
       }
     }
 
@@ -71,10 +84,12 @@ async function sendPushNotification(tokens, title, body, data = {}) {
       invalidTokens: []
     };
 
+    logger.info(`\n📊 Analyzing ${tickets.length} ticket(s)...`);
+
     tickets.forEach((ticket, index) => {
       if (ticket.status === 'error') {
         results.errors++;
-        logger.error(`Notification error for token ${validTokens[index]}:`, {
+        logger.error(`  ❌ Notification error for token ${validTokens[index]}:`, {
           message: ticket.message,
           details: ticket.details
         });
@@ -85,10 +100,11 @@ async function sendPushNotification(tokens, title, body, data = {}) {
         }
       } else {
         results.sent++;
+        logger.info(`  ✅ Ticket ${index + 1}: ${ticket.status} (id: ${ticket.id})`);
       }
     });
 
-    logger.info(`Notification sending complete`, {
+    logger.info(`\n✅ Notification sending complete`, {
       sent: results.sent,
       errors: results.errors,
       invalidTokens: results.invalidTokens.length
@@ -118,9 +134,17 @@ async function sendShipDetectedNotification(tokens, ship, distance) {
   const title = '🚢 Nouveau navire détecté !';
   const body = `${ship.name || 'Navire inconnu'} est à ${distanceKm}km de votre position`;
 
+  logger.info(`🚢 sendShipDetectedNotification:`, {
+    shipName: ship.name,
+    trackId: ship.trackId,
+    distanceKm,
+    tokensCount: tokens.length
+  });
+
   const data = {
     type: 'ship_detected',
     ship: {
+      trackId: ship.trackId,
       mmsi: ship.mmsi,
       name: ship.name,
       lat: ship.lat,

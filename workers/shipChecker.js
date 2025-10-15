@@ -15,11 +15,26 @@ let cronJob = null;
 // Référence vers le Set des tokens (passé depuis server.js)
 let registeredTokensRef = null;
 
+// Statistiques globales du worker (accessibles via /debug/notifications)
+if (!global.workerStats) {
+  global.workerStats = {
+    lastRun: null,
+    totalChecks: 0,
+    shipsFound: 0,
+    notificationsSent: 0
+  };
+}
+global.workerRunning = false;
+
 /**
  * Vérifier les navires et envoyer notifications si nécessaire
  */
 async function checkShips() {
   try {
+    global.workerStats.totalChecks++;
+    global.workerStats.lastRun = new Date().toISOString();
+
+    logger.info(`\n🔍 Worker check #${global.workerStats.totalChecks}...`);
     logger.info('Starting ship check cycle');
 
     // Vérifier s'il y a des tokens enregistrés
@@ -28,6 +43,8 @@ async function checkShips() {
       return;
     }
 
+    logger.info(`📱 Tokens enregistrés: ${registeredTokensRef.size}`);
+
     // Récupérer les navires dans la zone 3km
     const ships = await eurisApi.fetchShips(
       BASE_COORDS.lat,
@@ -35,7 +52,8 @@ async function checkShips() {
       ZONES.zone3
     );
 
-    logger.info(`Found ${ships.length} ships in zone 3km`);
+    logger.info(`🚢 Found ${ships.length} ships in zone 3km`);
+    global.workerStats.shipsFound = ships.length;
 
     // Créer un Set des trackId actuellement dans la zone
     const currentShipTrackIds = new Set(ships.map(ship => ship.trackId));
@@ -89,20 +107,26 @@ async function checkShips() {
 
     // Envoyer notifications pour les nouveaux navires
     if (newShips.length > 0) {
-      logger.info(`Sending notifications for ${newShips.length} new ship(s)`);
+      logger.info(`📨 Sending notifications for ${newShips.length} new ship(s)`);
 
       const tokens = Array.from(registeredTokensRef);
 
       for (const ship of newShips) {
+        logger.info(`  → Sending notification for ${ship.name} (${ship.trackId})`);
         await notificationService.sendShipDetectedNotification(
           tokens,
           ship,
           ship.distance
         );
+        global.workerStats.notificationsSent++;
       }
+
+      logger.info(`✅ Notifications sent: ${newShips.length}`);
+    } else {
+      logger.info('ℹ️  No new ships detected, no notifications sent');
     }
 
-    logger.info('Ship check cycle completed', {
+    logger.info('✅ Ship check cycle completed', {
       totalShips: ships.length,
       newShips: newShips.length,
       knownShips: knownShips.size,
@@ -139,6 +163,8 @@ function start(registeredTokens) {
     await checkShips();
   });
 
+  global.workerRunning = true;
+
   // Faire un premier check immédiatement au démarrage (après 5 secondes)
   setTimeout(async () => {
     logger.info('Initial ship check');
@@ -155,6 +181,7 @@ function stop() {
   if (cronJob) {
     cronJob.stop();
     cronJob = null;
+    global.workerRunning = false;
     logger.info('Ship checker worker stopped');
   }
 }

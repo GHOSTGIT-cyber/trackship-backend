@@ -71,15 +71,26 @@ app.post('/register-token', async (req, res) => {
   try {
     const { token } = req.body;
 
-    if (!token) {
+    // Validation token : vérifier que c'est une string non vide
+    if (!token || typeof token !== 'string') {
       logger.warn('Token registration attempt without token');
-      return res.status(400).json({ error: 'Token is required' });
+      return res.status(400).json({ error: 'Token manquant' });
     }
 
-    // Valider le format du token Expo
-    if (!token.startsWith('ExpoToken[') && !token.startsWith('ExpoPushToken[')) {
+    // Vérifier format de base Expo
+    const startsCorrectly = token.startsWith('ExponentPushToken[') ||
+                            token.startsWith('ExpoPushToken[') ||
+                            token.startsWith('ExpoToken[');
+    const endsCorrectly = token.endsWith(']');
+    const hasMinLength = token.length >= 20;
+
+    if (!startsCorrectly || !endsCorrectly || !hasMinLength) {
       logger.warn(`Invalid token format: ${token}`);
-      return res.status(400).json({ error: 'Invalid Expo token format' });
+      return res.status(400).json({
+        error: 'Format token invalide',
+        expected: 'ExponentPushToken[xxx], ExpoPushToken[xxx] ou ExpoToken[xxx] (min 20 caractères)',
+        received: token.substring(0, 30) + '...'
+      });
     }
 
     registeredTokens.add(token);

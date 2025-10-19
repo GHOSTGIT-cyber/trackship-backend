@@ -67,10 +67,13 @@ PORT=3000
 NODE_ENV=development
 BASE_LAT=48.853229
 BASE_LON=2.225328
-EURIS_API_URL=https://bakabi.fr/trackship/api/euris-proxy.php
+EURIS_API_URL=https://www.eurisportal.eu/visuris/api/TracksV2/GetTracksByBBoxV2
+EURIS_JWT_TOKEN=your_jwt_token_here
 CHECK_INTERVAL=30000
 LOG_LEVEL=debug
 ```
+
+**Note :** Le token JWT EuRIS peut être obtenu gratuitement sur [eurisportal.eu](https://www.eurisportal.eu)
 
 ## Utilisation
 
@@ -105,7 +108,8 @@ Le serveur démarrera sur `http://localhost:3000`
 3. Configurer les variables d'environnement suivantes :
    - `BASE_LAT=48.853229`
    - `BASE_LON=2.225328`
-   - `EURIS_API_URL=https://bakabi.fr/trackship/api/euris-proxy.php`
+   - `EURIS_API_URL=https://www.eurisportal.eu/visuris/api/TracksV2/GetTracksByBBoxV2`
+   - `EURIS_JWT_TOKEN=<votre_token_jwt_euris>`
    - `NODE_ENV=production`
    - `LOG_LEVEL=info`
 4. Cliquer sur "Deploy"
@@ -115,7 +119,8 @@ Le serveur démarrera sur `http://localhost:3000`
 ```env
 BASE_LAT=48.853229
 BASE_LON=2.225328
-EURIS_API_URL=https://bakabi.fr/trackship/api/euris-proxy.php
+EURIS_API_URL=https://www.eurisportal.eu/visuris/api/TracksV2/GetTracksByBBoxV2
+EURIS_JWT_TOKEN=<votre_token_jwt_euris>
 NODE_ENV=production
 LOG_LEVEL=info
 ```
@@ -225,7 +230,8 @@ Retourne le nombre de tokens enregistrés.
 | `NODE_ENV` | Environnement (development/production) | `development` |
 | `BASE_LAT` | Latitude de la base | `48.853229` |
 | `BASE_LON` | Longitude de la base | `2.225328` |
-| `EURIS_API_URL` | URL de l'API EuRIS | `https://bakabi.fr/trackship/api/euris-proxy.php` |
+| `EURIS_API_URL` | URL de l'API EuRIS (appel direct) | `https://www.eurisportal.eu/visuris/api/TracksV2/GetTracksByBBoxV2` |
+| `EURIS_JWT_TOKEN` | Token JWT pour l'API EuRIS | *requis* |
 | `CHECK_INTERVAL` | Intervalle de vérification (ms) | `30000` |
 | `LOG_LEVEL` | Niveau de log (debug/info/warn/error) | `debug` |
 | `CORS_ORIGINS` | Origines CORS autorisées | `*` |

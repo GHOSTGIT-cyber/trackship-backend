@@ -5,12 +5,16 @@ const { logger } = require('./utils/logger');
 const notificationService = require('./services/notificationService');
 const eurisApi = require('./services/eurisApi');
 const shipChecker = require('./workers/shipChecker');
+const { initializeFirebase, isFCMToken } = require('./services/firebaseService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Stockage en mémoire des tokens Expo
-// Format : Set de strings (ExpoToken[...])
+// Initialiser Firebase Admin SDK au démarrage
+initializeFirebase();
+
+// Stockage en mémoire des tokens push (Expo et FCM natif)
+// Format : Set de strings (ExpoToken[...] ou tokens FCM natifs)
 const registeredTokens = new Set();
 
 // Middleware
@@ -64,9 +68,10 @@ app.get('/health', (req, res) => {
 });
 
 /**
- * Enregistrer un token Expo pour recevoir des notifications
+ * Enregistrer un token push pour recevoir des notifications
+ * Supporte à la fois les tokens Expo et les tokens FCM natifs
  * POST /register-token
- * Body: { token: "ExpoToken[...]" }
+ * Body: { token: "ExpoToken[...]" ou token FCM natif }
  */
 app.post('/register-token', async (req, res) => {
   try {
@@ -78,31 +83,47 @@ app.post('/register-token', async (req, res) => {
       return res.status(400).json({ error: 'Token manquant' });
     }
 
-    // Vérifier format de base Expo
-    const startsCorrectly = token.startsWith('ExponentPushToken[') ||
-                            token.startsWith('ExpoPushToken[') ||
-                            token.startsWith('ExpoToken[');
-    const endsCorrectly = token.endsWith(']');
-    const hasMinLength = token.length >= 20;
-
-    if (!startsCorrectly || !endsCorrectly || !hasMinLength) {
-      logger.warn(`Invalid token format: ${token}`);
+    // Vérifier la longueur minimale (tous types de tokens)
+    if (token.length < 20) {
+      logger.warn(`Token too short: ${token}`);
       return res.status(400).json({
-        error: 'Format token invalide',
-        expected: 'ExponentPushToken[xxx], ExpoPushToken[xxx] ou ExpoToken[xxx] (min 20 caractères)',
-        received: token.substring(0, 30) + '...'
+        error: 'Token trop court',
+        minLength: 20,
+        received: token.length
       });
     }
 
+    // Détecter le type de token
+    const isNativeFCM = isFCMToken(token);
+    const tokenType = isNativeFCM ? 'FCM Native' : 'Expo';
+
+    // Valider format Expo si c'est un token Expo
+    if (!isNativeFCM) {
+      const startsCorrectly = token.startsWith('ExponentPushToken[') ||
+                              token.startsWith('ExpoPushToken[') ||
+                              token.startsWith('ExpoToken[');
+      const endsCorrectly = token.endsWith(']');
+
+      if (!startsCorrectly || !endsCorrectly) {
+        logger.warn(`Invalid Expo token format: ${token}`);
+        return res.status(400).json({
+          error: 'Format token Expo invalide',
+          expected: 'ExponentPushToken[xxx], ExpoPushToken[xxx] ou ExpoToken[xxx]',
+          received: token.substring(0, 30) + '...'
+        });
+      }
+    }
+
     registeredTokens.add(token);
-    logger.info(`Token registered successfully: ${token}`, {
+    logger.info(`✅ Token registered successfully: ${token.substring(0, 30)}...`, {
+      tokenType,
       totalTokens: registeredTokens.size
     });
 
-    // Envoyer notification de test
+    // Envoyer notification de confirmation
     await notificationService.sendPushNotification(
       [token],
-      'TrackShip activé',
+      '🚢 TrackShip activé',
       'Vous recevrez des notifications quand un navire entre dans la zone de 3km',
       { type: 'registration_confirmation' }
     );
@@ -110,6 +131,7 @@ app.post('/register-token', async (req, res) => {
     res.json({
       success: true,
       message: 'Token registered successfully',
+      tokenType: tokenType,
       totalTokens: registeredTokens.size
     });
   } catch (error) {

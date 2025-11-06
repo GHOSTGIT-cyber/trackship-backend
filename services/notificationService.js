@@ -1,12 +1,14 @@
 const { Expo } = require('expo-server-sdk');
 const { logger } = require('../utils/logger');
+const { isFCMToken, sendFCMNotifications } = require('./firebaseService');
 
 // Créer un client Expo SDK
 const expo = new Expo();
 
 /**
- * Envoyer une notification push à un ou plusieurs tokens Expo
- * @param {string[]} tokens - Array de tokens Expo (ExpoToken[...])
+ * Envoyer une notification push à un ou plusieurs tokens (Expo ou FCM natif)
+ * Détecte automatiquement le type de token et utilise le bon service
+ * @param {string[]} tokens - Array de tokens (Expo ou FCM)
  * @param {string} title - Titre de la notification
  * @param {string} body - Corps de la notification
  * @param {object} data - Données additionnelles (optionnel)
@@ -21,6 +23,83 @@ async function sendPushNotification(tokens, title, body, data = {}) {
       dataKeys: Object.keys(data)
     });
 
+    // Séparer les tokens Expo des tokens FCM natifs
+    const expoTokens = [];
+    const fcmTokens = [];
+
+    tokens.forEach(token => {
+      if (isFCMToken(token)) {
+        logger.info(`📱 Detected FCM native token: ${token.substring(0, 30)}...`);
+        fcmTokens.push(token);
+      } else {
+        logger.info(`📱 Detected Expo token: ${token.substring(0, 30)}...`);
+        expoTokens.push(token);
+      }
+    });
+
+    logger.info(`📋 Token distribution: ${expoTokens.length} Expo, ${fcmTokens.length} FCM native`);
+
+    // Résultats combinés
+    const combinedResults = {
+      success: true,
+      sent: 0,
+      errors: 0,
+      invalidTokens: [],
+      expoResults: null,
+      fcmResults: null
+    };
+
+    // Envoyer aux tokens Expo si présents
+    if (expoTokens.length > 0) {
+      logger.info(`\n📤 Sending to ${expoTokens.length} Expo token(s)...`);
+      const expoResults = await sendExpoNotifications(expoTokens, title, body, data);
+      combinedResults.expoResults = expoResults;
+      combinedResults.sent += expoResults.sent;
+      combinedResults.errors += expoResults.errors;
+      combinedResults.invalidTokens.push(...expoResults.invalidTokens);
+    }
+
+    // Envoyer aux tokens FCM natifs si présents
+    if (fcmTokens.length > 0) {
+      logger.info(`\n📤 Sending to ${fcmTokens.length} FCM native token(s)...`);
+      const fcmResults = await sendFCMNotifications(fcmTokens, title, body, data);
+      combinedResults.fcmResults = fcmResults;
+      combinedResults.sent += fcmResults.sent;
+      combinedResults.errors += fcmResults.errors;
+      combinedResults.invalidTokens.push(...fcmResults.invalidTokens);
+    }
+
+    logger.info(`\n✅ Combined notification sending complete`, {
+      totalSent: combinedResults.sent,
+      totalErrors: combinedResults.errors,
+      invalidTokens: combinedResults.invalidTokens.length,
+      expoSent: combinedResults.expoResults?.sent || 0,
+      fcmSent: combinedResults.fcmResults?.sent || 0
+    });
+
+    return combinedResults;
+
+  } catch (error) {
+    logger.error('Error in sendPushNotification:', error);
+    return {
+      success: false,
+      message: error.message,
+      sent: 0,
+      errors: 1
+    };
+  }
+}
+
+/**
+ * Envoyer une notification push aux tokens Expo uniquement
+ * @param {string[]} tokens - Array de tokens Expo (ExpoToken[...])
+ * @param {string} title - Titre de la notification
+ * @param {string} body - Corps de la notification
+ * @param {object} data - Données additionnelles (optionnel)
+ * @returns {Promise<object>} - Résultats de l'envoi
+ */
+async function sendExpoNotifications(tokens, title, body, data = {}) {
+  try {
     // Filtrer les tokens invalides
     const validTokens = tokens.filter(token => {
       if (!Expo.isExpoPushToken(token)) {
@@ -32,15 +111,17 @@ async function sendPushNotification(tokens, title, body, data = {}) {
     });
 
     if (validTokens.length === 0) {
-      logger.warn('⚠️  No valid tokens to send notification to');
+      logger.warn('⚠️  No valid Expo tokens to send notification to');
       return {
         success: false,
         message: 'No valid tokens',
-        sent: 0
+        sent: 0,
+        errors: 0,
+        invalidTokens: []
       };
     }
 
-    logger.info(`📋 Valid tokens: ${validTokens.length}/${tokens.length}`);
+    logger.info(`📋 Valid Expo tokens: ${validTokens.length}/${tokens.length}`);
 
     // Créer les messages
     const messages = validTokens.map(token => ({
@@ -53,10 +134,7 @@ async function sendPushNotification(tokens, title, body, data = {}) {
       channelId: 'default'
     }));
 
-    logger.info(`📦 Preparing to send ${messages.length} notifications`, {
-      title,
-      tokens: validTokens.length
-    });
+    logger.info(`📦 Preparing to send ${messages.length} Expo notifications`);
 
     // Diviser en chunks (Expo recommande max 100 par requête)
     const chunks = expo.chunkPushNotifications(messages);
@@ -84,7 +162,7 @@ async function sendPushNotification(tokens, title, body, data = {}) {
       invalidTokens: []
     };
 
-    logger.info(`\n📊 Analyzing ${tickets.length} ticket(s)...`);
+    logger.info(`\n📊 Analyzing ${tickets.length} Expo ticket(s)...`);
 
     tickets.forEach((ticket, index) => {
       if (ticket.status === 'error') {
@@ -104,7 +182,7 @@ async function sendPushNotification(tokens, title, body, data = {}) {
       }
     });
 
-    logger.info(`\n✅ Notification sending complete`, {
+    logger.info(`✅ Expo notification sending complete`, {
       sent: results.sent,
       errors: results.errors,
       invalidTokens: results.invalidTokens.length
@@ -113,11 +191,13 @@ async function sendPushNotification(tokens, title, body, data = {}) {
     return results;
 
   } catch (error) {
-    logger.error('Error in sendPushNotification:', error);
+    logger.error('Error in sendExpoNotifications:', error);
     return {
       success: false,
       message: error.message,
-      sent: 0
+      sent: 0,
+      errors: 1,
+      invalidTokens: []
     };
   }
 }

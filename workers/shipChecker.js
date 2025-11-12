@@ -109,7 +109,8 @@ async function checkShips() {
     if (newShips.length > 0) {
       logger.info(`📨 Sending notifications for ${newShips.length} new ship(s)`);
 
-      const tokens = Array.from(registeredTokensRef);
+      // Extraire les tokens depuis le Map (keys = tokens, values = metadata)
+      const tokens = Array.from(registeredTokensRef.keys());
 
       for (const ship of newShips) {
         logger.info(`  → Sending notification for ${ship.name} (${ship.trackId})`);

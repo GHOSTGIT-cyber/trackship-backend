@@ -52,3 +52,8 @@ tmp/
 temp/
 *.tmp
 .claude/
+
+# Firebase credentials (NEVER commit these!)
+*firebase-adminsdk*.json
+google-services.json
+GoogleService-Info.plist

@@ -29,15 +29,15 @@ async function sendPushNotification(tokens, title, body, data = {}) {
 
     tokens.forEach(token => {
       if (isFCMToken(token)) {
-        logger.info(`📱 Detected FCM native token: ${token.substring(0, 30)}...`);
+        logger.info(`[FCM] 📱 Token FCM natif détecté : ${token.substring(0, 30)}...`);
         fcmTokens.push(token);
       } else {
-        logger.info(`📱 Detected Expo token: ${token.substring(0, 30)}...`);
+        logger.info(`[EXPO] 📱 Token Expo détecté : ${token.substring(0, 30)}...`);
         expoTokens.push(token);
       }
     });
 
-    logger.info(`📋 Token distribution: ${expoTokens.length} Expo, ${fcmTokens.length} FCM native`);
+    logger.info(`📋 Distribution: ${expoTokens.length} Expo, ${fcmTokens.length} FCM native`);
 
     // Résultats combinés
     const combinedResults = {
@@ -51,7 +51,7 @@ async function sendPushNotification(tokens, title, body, data = {}) {
 
     // Envoyer aux tokens Expo si présents
     if (expoTokens.length > 0) {
-      logger.info(`\n📤 Sending to ${expoTokens.length} Expo token(s)...`);
+      logger.info(`\n[EXPO] 📤 Envoi à ${expoTokens.length} token(s) Expo...`);
       const expoResults = await sendExpoNotifications(expoTokens, title, body, data);
       combinedResults.expoResults = expoResults;
       combinedResults.sent += expoResults.sent;
@@ -61,7 +61,7 @@ async function sendPushNotification(tokens, title, body, data = {}) {
 
     // Envoyer aux tokens FCM natifs si présents
     if (fcmTokens.length > 0) {
-      logger.info(`\n📤 Sending to ${fcmTokens.length} FCM native token(s)...`);
+      logger.info(`\n[FCM] 📤 Envoi à ${fcmTokens.length} token(s) FCM natif...`);
       const fcmResults = await sendFCMNotifications(fcmTokens, title, body, data);
       combinedResults.fcmResults = fcmResults;
       combinedResults.sent += fcmResults.sent;
@@ -103,15 +103,15 @@ async function sendExpoNotifications(tokens, title, body, data = {}) {
     // Filtrer les tokens invalides
     const validTokens = tokens.filter(token => {
       if (!Expo.isExpoPushToken(token)) {
-        logger.warn(`❌ Invalid Expo push token: ${token}`);
+        logger.warn(`[EXPO] ❌ Token Expo invalide: ${token}`);
         return false;
       }
-      logger.info(`✅ Valid Expo token: ${token.substring(0, 30)}...`);
+      logger.info(`[EXPO] ✅ Token Expo valide: ${token.substring(0, 30)}...`);
       return true;
     });
 
     if (validTokens.length === 0) {
-      logger.warn('⚠️  No valid Expo tokens to send notification to');
+      logger.warn('[EXPO] ⚠️  Aucun token Expo valide');
       return {
         success: false,
         message: 'No valid tokens',
@@ -121,7 +121,7 @@ async function sendExpoNotifications(tokens, title, body, data = {}) {
       };
     }
 
-    logger.info(`📋 Valid Expo tokens: ${validTokens.length}/${tokens.length}`);
+    logger.info(`[EXPO] 📋 Tokens valides: ${validTokens.length}/${tokens.length}`);
 
     // Créer les messages
     const messages = validTokens.map(token => ({
@@ -134,23 +134,23 @@ async function sendExpoNotifications(tokens, title, body, data = {}) {
       channelId: 'default'
     }));
 
-    logger.info(`📦 Preparing to send ${messages.length} Expo notifications`);
+    logger.info(`[EXPO] 📦 Préparation de ${messages.length} notifications`);
 
     // Diviser en chunks (Expo recommande max 100 par requête)
     const chunks = expo.chunkPushNotifications(messages);
     const tickets = [];
 
-    logger.info(`🔀 Split into ${chunks.length} chunk(s)`);
+    logger.info(`[EXPO] 🔀 Divisé en ${chunks.length} chunk(s)`);
 
     // Envoyer chaque chunk
     for (const chunk of chunks) {
       try {
-        logger.info(`  → Sending chunk of ${chunk.length} notifications to Expo...`);
+        logger.info(`[EXPO]   → Envoi chunk de ${chunk.length} notifications...`);
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
-        logger.info(`  ✅ Sent chunk successfully, received ${ticketChunk.length} tickets`);
+        logger.info(`[EXPO]   ✅ Chunk envoyé, ${ticketChunk.length} tickets reçus`);
       } catch (error) {
-        logger.error('  ❌ Error sending notification chunk:', error);
+        logger.error('[EXPO]   ❌ Erreur envoi chunk:', error);
       }
     }
 
@@ -167,10 +167,24 @@ async function sendExpoNotifications(tokens, title, body, data = {}) {
     tickets.forEach((ticket, index) => {
       if (ticket.status === 'error') {
         results.errors++;
-        logger.error(`  ❌ Notification error for token ${validTokens[index]}:`, {
-          message: ticket.message,
-          details: ticket.details
-        });
+
+        const errorType = ticket.details?.error;
+        const tokenPreview = validTokens[index].substring(0, 30) + '...';
+
+        // Gestion spécifique de l'erreur InvalidCredentials
+        if (errorType === 'InvalidCredentials') {
+          logger.error(`[EXPO] ❌ Erreur InvalidCredentials pour token ${tokenPreview}`);
+          logger.error(`[EXPO] 💡 Ce token Expo nécessite la configuration FCM Server Key dans Expo`);
+          logger.error(`[EXPO] 💡 Solutions :`);
+          logger.error(`[EXPO]    1. Configurez FCM dans votre projet Expo (app.json)`);
+          logger.error(`[EXPO]    2. OU utilisez getDevicePushTokenAsync() pour un token FCM natif dans votre APK`);
+          logger.error(`[EXPO]    3. OU testez avec Expo Go qui ne nécessite pas FCM`);
+        } else {
+          logger.error(`[EXPO] ❌ Notification error for token ${tokenPreview}:`, {
+            message: ticket.message,
+            details: ticket.details
+          });
+        }
 
         // Si le token est invalide, le marquer pour suppression
         if (ticket.details && ticket.details.error === 'DeviceNotRegistered') {
@@ -178,11 +192,11 @@ async function sendExpoNotifications(tokens, title, body, data = {}) {
         }
       } else {
         results.sent++;
-        logger.info(`  ✅ Ticket ${index + 1}: ${ticket.status} (id: ${ticket.id})`);
+        logger.info(`[EXPO] ✅ Ticket ${index + 1}: ${ticket.status} (id: ${ticket.id})`);
       }
     });
 
-    logger.info(`✅ Expo notification sending complete`, {
+    logger.info(`[EXPO] ✅ Envoi terminé`, {
       sent: results.sent,
       errors: results.errors,
       invalidTokens: results.invalidTokens.length
@@ -191,7 +205,7 @@ async function sendExpoNotifications(tokens, title, body, data = {}) {
     return results;
 
   } catch (error) {
-    logger.error('Error in sendExpoNotifications:', error);
+    logger.error('[EXPO] ❌ Erreur dans sendExpoNotifications:', error);
     return {
       success: false,
       message: error.message,

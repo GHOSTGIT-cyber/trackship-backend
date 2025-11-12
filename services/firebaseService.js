@@ -75,6 +75,51 @@ function isFCMToken(token) {
 }
 
 /**
+ * Valide qu'un token FCM a un format correct
+ * Les tokens FCM sont généralement de longues chaînes alphanumériques
+ * avec des caractères spéciaux comme : - _ et ont une longueur minimale
+ * @param {string} token - Le token FCM à valider
+ * @returns {{valid: boolean, reason?: string}}
+ */
+function validateFCMToken(token) {
+  // Vérifier longueur minimale (tokens FCM font généralement 100+ caractères)
+  if (token.length < 50) {
+    return {
+      valid: false,
+      reason: `Token trop court (${token.length} caractères). Les tokens FCM font généralement 100+ caractères.`
+    };
+  }
+
+  // Vérifier longueur maximale raisonnable
+  if (token.length > 500) {
+    return {
+      valid: false,
+      reason: `Token trop long (${token.length} caractères). Longueur maximale : 500 caractères.`
+    };
+  }
+
+  // Vérifier que le token contient uniquement des caractères valides
+  // FCM tokens : alphanumériques + quelques caractères spéciaux (: - _)
+  const validFCMPattern = /^[a-zA-Z0-9:_-]+$/;
+  if (!validFCMPattern.test(token)) {
+    return {
+      valid: false,
+      reason: 'Token contient des caractères invalides. Format FCM attendu : alphanumériques, ":", "-", "_"'
+    };
+  }
+
+  // Vérifier que ce n'est pas un format Expo déguisé
+  if (token.includes('[') || token.includes(']')) {
+    return {
+      valid: false,
+      reason: 'Token ressemble à un token Expo. Utilisez getDevicePushTokenAsync() pour APK natives.'
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
  * Envoie une notification push via Firebase Cloud Messaging (FCM) natif
  * @param {string} token - Token FCM du device Android/iOS natif
  * @param {string} title - Titre de la notification
@@ -85,7 +130,8 @@ function isFCMToken(token) {
 async function sendFCMNotification(token, title, body, data = {}) {
   try {
     if (!firebaseInitialized) {
-      logger.error('❌ Firebase not initialized. Cannot send FCM notification.');
+      logger.error('[FCM] ❌ Firebase not initialized. Cannot send FCM notification.');
+      logger.error('[FCM] 💡 Add FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL to environment');
       return {
         success: false,
         error: 'Firebase not initialized',
@@ -93,7 +139,20 @@ async function sendFCMNotification(token, title, body, data = {}) {
       };
     }
 
-    logger.info(`📧 Sending FCM notification to: ${token.substring(0, 30)}...`);
+    // Valider le token FCM avant envoi
+    const validation = validateFCMToken(token);
+    if (!validation.valid) {
+      logger.error(`[FCM] ❌ Invalid FCM token format: ${token.substring(0, 30)}...`);
+      logger.error(`[FCM] 💡 ${validation.reason}`);
+      return {
+        success: false,
+        error: validation.reason,
+        invalidToken: true,
+        token: token.substring(0, 30) + '...'
+      };
+    }
+
+    logger.info(`[FCM] 📧 Sending notification to: ${token.substring(0, 30)}...`);
 
     // Construire le message FCM
     const message = {
@@ -128,7 +187,7 @@ async function sendFCMNotification(token, title, body, data = {}) {
     // Envoyer via Firebase Admin SDK
     const response = await admin.messaging().send(message);
 
-    logger.info(`✅ FCM notification sent successfully. Message ID: ${response}`);
+    logger.info(`[FCM] ✅ Notification sent successfully. Message ID: ${response}`);
 
     return {
       success: true,
@@ -137,7 +196,7 @@ async function sendFCMNotification(token, title, body, data = {}) {
     };
 
   } catch (error) {
-    logger.error(`❌ FCM notification error for token ${token.substring(0, 30)}...`, {
+    logger.error(`[FCM] ❌ Notification error for token ${token.substring(0, 30)}...`, {
       code: error.code,
       message: error.message
     });
@@ -166,7 +225,8 @@ async function sendFCMNotification(token, title, body, data = {}) {
  */
 async function sendFCMNotifications(tokens, title, body, data = {}) {
   if (!firebaseInitialized) {
-    logger.error('❌ Firebase not initialized. Cannot send FCM notifications.');
+    logger.error('[FCM] ❌ Firebase not initialized. Cannot send FCM notifications.');
+    logger.error('[FCM] 💡 Add Firebase credentials to environment variables');
     return {
       success: false,
       sent: 0,
@@ -175,7 +235,7 @@ async function sendFCMNotifications(tokens, title, body, data = {}) {
     };
   }
 
-  logger.info(`📧 Sending FCM notifications to ${tokens.length} token(s)`);
+  logger.info(`[FCM] 📧 Sending notifications to ${tokens.length} token(s)`);
 
   const results = {
     success: true,
@@ -198,7 +258,7 @@ async function sendFCMNotifications(tokens, title, body, data = {}) {
     }
   }
 
-  logger.info(`✅ FCM notifications complete: ${results.sent} sent, ${results.errors} errors`);
+  logger.info(`[FCM] ✅ Notifications complete: ${results.sent} sent, ${results.errors} errors`);
 
   return results;
 }
@@ -207,6 +267,7 @@ module.exports = {
   initializeFirebase,
   isFirebaseAvailable,
   isFCMToken,
+  validateFCMToken,
   sendFCMNotification,
   sendFCMNotifications
 };

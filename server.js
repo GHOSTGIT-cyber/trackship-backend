@@ -5,7 +5,7 @@ const { logger } = require('./utils/logger');
 const notificationService = require('./services/notificationService');
 const eurisApi = require('./services/eurisApi');
 const shipChecker = require('./workers/shipChecker');
-const { initializeFirebase, isFCMToken } = require('./services/firebaseService');
+const { initializeFirebase, isFCMToken, validateFCMToken } = require('./services/firebaseService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,9 +13,9 @@ const PORT = process.env.PORT || 3000;
 // Initialiser Firebase Admin SDK au démarrage
 initializeFirebase();
 
-// Stockage en mémoire des tokens push (Expo et FCM natif)
-// Format : Set de strings (ExpoToken[...] ou tokens FCM natifs)
-const registeredTokens = new Set();
+// Stockage en mémoire des tokens push avec métadonnées
+// Format : Map<token, {type: 'expo'|'fcm', registeredAt: Date}>
+const registeredTokens = new Map();
 
 // Middleware
 app.use(cors());
@@ -95,7 +95,8 @@ app.post('/register-token', async (req, res) => {
 
     // Détecter le type de token
     const isNativeFCM = isFCMToken(token);
-    const tokenType = isNativeFCM ? 'FCM Native' : 'Expo';
+    const tokenType = isNativeFCM ? 'fcm' : 'expo';
+    const tokenTypeName = isNativeFCM ? 'FCM Native' : 'Expo';
 
     // Valider format Expo si c'est un token Expo
     if (!isNativeFCM) {
@@ -105,18 +106,39 @@ app.post('/register-token', async (req, res) => {
       const endsCorrectly = token.endsWith(']');
 
       if (!startsCorrectly || !endsCorrectly) {
-        logger.warn(`Invalid Expo token format: ${token}`);
+        logger.warn(`[EXPO] ❌ Format token Expo invalide: ${token.substring(0, 30)}...`);
         return res.status(400).json({
           error: 'Format token Expo invalide',
           expected: 'ExponentPushToken[xxx], ExpoPushToken[xxx] ou ExpoToken[xxx]',
-          received: token.substring(0, 30) + '...'
+          received: token.substring(0, 30) + '...',
+          type: 'validation_error'
+        });
+      }
+    } else {
+      // Valider format FCM si c'est un token FCM
+      const validation = validateFCMToken(token);
+      if (!validation.valid) {
+        logger.warn(`[FCM] ❌ Token FCM invalide: ${token.substring(0, 30)}...`);
+        logger.warn(`[FCM] 💡 Raison: ${validation.reason}`);
+        return res.status(400).json({
+          error: 'Format token FCM invalide',
+          reason: validation.reason,
+          received: token.substring(0, 30) + '...',
+          type: 'validation_error',
+          hint: 'Utilisez getDevicePushTokenAsync() dans votre app pour générer un token FCM natif'
         });
       }
     }
 
-    registeredTokens.add(token);
-    logger.info(`✅ Token registered successfully: ${token.substring(0, 30)}...`, {
-      tokenType,
+    // Stocker le token avec ses métadonnées
+    registeredTokens.set(token, {
+      type: tokenType,
+      registeredAt: new Date(),
+      lastUsed: new Date()
+    });
+
+    logger.info(`✅ Token enregistré avec succès: ${token.substring(0, 30)}...`, {
+      tokenType: tokenTypeName,
       totalTokens: registeredTokens.size
     });
 
@@ -130,8 +152,8 @@ app.post('/register-token', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Token registered successfully',
-      tokenType: tokenType,
+      message: 'Token enregistré avec succès',
+      tokenType: tokenTypeName,
       totalTokens: registeredTokens.size
     });
   } catch (error) {

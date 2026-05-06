@@ -81,10 +81,14 @@ async function fetchShips(lat, lon, radius) {
       return [];
     }
 
-    // L'API retourne directement un array de tracks
-    const tracks = Array.isArray(response.data) ? response.data : [];
+    // L'API retourne soit un tableau direct [{...}] (ancien format)
+    // soit un objet {items: [...], count: N, nextPageLink: ...} (nouveau format)
+    const data = response.data;
+    const tracks = Array.isArray(data)
+      ? data
+      : (data?.items || data?.Items || []);
 
-    logger.info(`✅ EuRIS returned ${tracks.length} tracks`);
+    logger.info(`✅ EuRIS returned ${tracks.length} tracks (total: ${data?.count ?? tracks.length})`);
 
     // Calculer la distance pour chaque navire et formater les données
     const shipsWithDistance = tracks.map(track => {

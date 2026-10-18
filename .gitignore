@@ -57,3 +57,9 @@ temp/
 *firebase-adminsdk*.json
 google-services.json
 GoogleService-Info.plist
+
+# Secrets (cles privees, comptes de service, notes de config)
+*.pem
+*.key
+*service-account*.json
+RAILWAY_FIREBASE_CONFIG.md

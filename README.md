@@ -1,3 +1,15 @@
+<p align="center">
+  <img src=".github/readme/banner.svg" alt="TrackShip Backend" width="100%">
+</p>
+
+> Surveillance des navires via l'API EuRIS par tâche planifiée, et notifications push vers l'application mobile.
+
+![NODE.JS](https://img.shields.io/badge/NODE.JS-0B1A2A?style=flat-square&labelColor=0B1A2A&color=1E3A52) ![EXPRESS](https://img.shields.io/badge/EXPRESS-0B1A2A?style=flat-square&labelColor=0B1A2A&color=1E3A52) ![EXPO PUSH](https://img.shields.io/badge/EXPO_PUSH-0B1A2A?style=flat-square&labelColor=0B1A2A&color=1E3A52) ![RAILWAY](https://img.shields.io/badge/RAILWAY-0B1A2A?style=flat-square&labelColor=0B1A2A&color=1E3A52)
+
+**Statut** — 🟢 Déployé sur Railway
+
+---
+
 # TrackShip Backend
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/new)
